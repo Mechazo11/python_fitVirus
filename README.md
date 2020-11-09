@@ -1,6 +1,6 @@
 # python_fitVirus
 Port of Dr. Batista's single wave fitVirus MATLAB code 
-Reference -- M. Batista (2020). fitVirus (https://www.mathworks.com/matlabcentral/fileexchange/74411-fitvirus), MATLAB Central File Exchange. Retrieved November 2, 2020.
+<br/>Reference -- M. Batista (2020). fitVirus (https://www.mathworks.com/matlabcentral/fileexchange/74411-fitvirus), MATLAB Central File Exchange. Retrieved November 2, 2020.
 
 //TO-Do insert image of plot generated
 
