@@ -269,8 +269,13 @@ def plot_cumu_phases(params, timestamp, sampleC, yypred,I_change):
     plt.axvline(x = tpeak, lw = 2, color = 'red', label = 'Max growth rate at week {} '.format(tpeak))
     ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.1), shadow=True, ncol=4)
 
+    # Add axis label
+    plt.xlabel("Time")
+    plt.ylabel("Normalized Prevelance / Incidence")
+    
     # Save figure
-    plt.savefig('combined_phase.png')
+    plt.savefig('combined_phase.png', bbox_inches='tight')
+    plt.savefig("combined_phase.svg", format = 'svg', dpi=600, bbox_inches='tight')
     plt.show()
 
 # Reference - https://learn.64bitdragon.com/articles/computer-science/data-processing/min-max-normalization
