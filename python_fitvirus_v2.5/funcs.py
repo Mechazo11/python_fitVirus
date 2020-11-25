@@ -117,7 +117,7 @@ def iniGuess(C):
 
 # Nonlinear least squares fit function
 def gekko_nonlinearfit(timestamp, sampleC, c0):
-    m = GEKKO()
+    m=GEKKO(remote=False)
     xm = timestamp
     ym = sampleC
     x = m.Param(value=xm)
