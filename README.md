@@ -7,7 +7,7 @@ Port of Dr. Batista's single wave fitVirus MATLAB code
 ## Author - Azmyin Md. Kamal, Graduate Research Assistant, UL Lafayette, Louisiana, USA
 
 # Images
-### Cumulative plot
+### Plot with virus phase. Here only the fast-growth phase has been highlighted
 ![](images/combined.png)
 
 ## Known Issues ---------------------------------------------------------------------------
