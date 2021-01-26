@@ -1,5 +1,5 @@
 # User-defined function file for python fitVirusXX
-# Date: 08.05.2020
+# Date Modified: 01.26.2021
 # Version 1
 
 # Notes
@@ -14,19 +14,21 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from math import floor, log, exp, ceil, sqrt, isnan, isinf, nan
+#import math
 from scipy import optimize
 from sklearn.metrics import mean_squared_error, r2_score
+from gekko import GEKKO
+#from pyloess.Loess import Loess # user defined library
 from sklearn.neighbors.kde import KernelDensity # For pyloess function
 import statsmodels.api as sm
 from lmfit import Parameters, fit_report, minimize
 
 ########################## BEGIN FUNCTION DEFINTIONS ######################################
 
-# Master function to do all the caluclation stuff. 
-# Input will be state data, state name, 
-# output will be array of phase locations adjusted to week scale
+# -----------------------------------------------------------------------------------
 def master_fn(df, state_name, const_add, debug, plot_res):
-    
+    # Master function to do all the caluclation stuff. 
+    # Input will be state data, state name,
     # Step 0 Define working variable and constants
     min_ndat = 7 # This is emperical, may be subject to change or determination using another technique
     tol_single_wave = 0.90
@@ -38,50 +40,28 @@ def master_fn(df, state_name, const_add, debug, plot_res):
     # Step 1 Load weekly data and time index
     week_agg, timestamp_week = choose_state(df, state_name)
     max_ndat = len(week_agg) # This is a global variable telling how many week of data we have
+    
     if(debug == True):
         print(f"\nState --> {state_name}")
         print(f"Number of weeks data to fit is {max_ndat}\n")
         # print(week_agg)
     
-    # Step 2 Test if we have multiple waves (depricated)
-    b0_init = []
-    b_wave1, rr2_wave1, rmse_wave1, y_pred = check_multiwave(b0_init, week_agg, timestamp_week, nx_test= 0, plot_res= False)
+    # Step 2 Perform non linear fit
+    b0_init = [] # We don't have any initial values to pass for first wave test
+    b_wave1, rr2_wave1, rmse_wave1, y_pred = fit_wave(b0_init, week_agg, timestamp_week, nx_test= 0, plot_res= False)
     
+    # Print Debug
     if(debug == True):
         print(f"R2 score for test for singe wave fit --> {rr2_wave1}")
         print(f"RMSE score for test for single wave fit --> {rmse_wave1}\n")
     
-    # return stuff
+    # Return output
     return b_wave1, timestamp_week, week_agg, y_pred, rr2_wave1
 # -----------------------------------------------------------------------------------
 
-# Function to fit single wave curve for multiple states in main for loop
-def fit_single_phase(bb_fit1, t_span_w1, print_res):
-    w1_tpeak, w1_tp2, w1_tp3, w1_tp4, w1_tpend = 0,0,0,0,0
-    w1_loc_ls = []
-
-    # Unpack variables for wave 1
-    w1_K = bb_fit1[0]
-    w1_r = bb_fit1[1]
-    w1_A = bb_fit1[2]
-
-    w1_loc_ls = find_phase_loc(w1_K, w1_r, w1_A, t_span_w1, print_res = print_res)
-    return w1_loc_ls
 # -----------------------------------------------------------------------------------
-
-# Function to calculate Incidence
-def fit_incidence_single(y_act, t_cumu, param_w1):
-    P_act_w1 = y_act
-    tt_w1 =  t_cumu
-    I_act_w1 = np.diff(P_act_w1)
-    I_act_w1 = np.insert(I_act_w1, [0], [I_act_w1[0]])
-    I_pred_w1 = logisticFun2(tt_w1, param_w1, P_act_w1)
-
-    return I_pred_w1
-# -----------------------------------------------------------------------------------
-
-# Function which scales my timestamp_week to match the week scale used by Dr. Satya
 def scale_to_dat_week(w_loc_ls, const_add, max_w):
+    # Function which scales my timestamp_week to match the week scale used by Dr. Satya
     new_loc_ls = []
     new_end_val = max_w + const_add # The final week value also needs to shift by 3
     # print(f"New end val --> {new_end_val}")
@@ -105,6 +85,32 @@ def scale_to_dat_week(w_loc_ls, const_add, max_w):
     return new_loc_ls
 # -----------------------------------------------------------------------------------
 
+# -----------------------------------------------------------------------------------
+def fit_single_phase(bb_fit1, t_span_w1, print_res):
+    w1_tpeak, w1_tp2, w1_tp3, w1_tp4, w1_tpend = 0,0,0,0,0
+    w1_loc_ls = []
+
+    # Unpack variables for wave 1
+    w1_K = bb_fit1[0]
+    w1_r = bb_fit1[1]
+    w1_A = bb_fit1[2]
+
+    w1_loc_ls = find_phase_loc(w1_K, w1_r, w1_A, t_span_w1, print_res = print_res)
+    return w1_loc_ls
+# -----------------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------------
+def fit_incidence_single(y_act, t_cumu, param_w1):
+    P_act_w1 = y_act
+    tt_w1 =  t_cumu
+    I_act_w1 = np.diff(P_act_w1)
+    I_act_w1 = np.insert(I_act_w1, [0], [I_act_w1[0]])
+    I_pred_w1 = logisticFun2(tt_w1, param_w1, P_act_w1)
+
+    return I_pred_w1
+# -----------------------------------------------------------------------------------
+
+
 # Function that takes in the primary dataframe, name of a state and outputs week level cases and an array for counting week
 def choose_state(df, state_name):
     sampleC = np.asarray(df[state_name])
@@ -116,10 +122,10 @@ def choose_state(df, state_name):
     week_agg = sampleC
     timestamp_week = np.asarray([(i+1) for i in range(len(sampleC))])
     return week_agg, timestamp_week
-# -----------------------------------------------------------------------------------
 
-# Corrected week-level aggregation
+# -----------------------------------------------------------------------------------
 def week_aggregate(sampleC):
+    # Corrected week-level aggregation
     # week_agg -- array of cumulative cases in 'week' level
     # timestamp_week -- array of time in week level
     # note -- days which don't form a complete week are truncated
@@ -159,7 +165,7 @@ def week_aggregate(sampleC):
     return P_ls, tt
 # -----------------------------------------------------------------------------------
 
-# Upgraded three point estimation based on Dr. Batista's fitVirusXX
+# -----------------------------------------------------------------------------------
 def iniGuessX(C):
     # k1, k2 and k3 are the tk, tk-m and tk - 2m from Dr. Batista's paper
     k1 = 0
@@ -263,21 +269,21 @@ def iniGuessX(C):
     return b0
 # -----------------------------------------------------------------------------------
 
-# Perform non-linear least squares fit.
-# Consult LMFIT website for available optimization algorithms
-def fit_wave(ndat, week_agg, tspan, b00, show_rep, method):
+# -----------------------------------------------------------------------------------
+def perform_fit(ndat, week_agg, tspan, b00, show_rep, method):
+    # Major function whose job is to perform non-linear fit on the given set of data
     # Input
     # nx_test -- number of elements in the subsample
     # week_agg -- numpy array of actual cumulative cases
     # tspan -- numpy array of number of weeks
     # show_rep -- boolean - Set True to print out fit report
-    # iniGuess -- array of K, r and A from a previous calculation or user supplied method
+    # iniGuess -- array of K, r and A from a previous calculation or user supplied
+    # method
 
     # Output
     # b -- python list containing values of K, r and A sequentially for a particular wave
     # ff -- predicted value calculated using logisticFun function
     # t_span -- array of weeks for which ff was calculated
-    
     # Define working variables
     b = []
     method_user = None
@@ -336,11 +342,12 @@ def fit_wave(ndat, week_agg, tspan, b00, show_rep, method):
     yy = P_week
 
     return b_fit, yy_hat, yy, tt_span
+# -----------------------------------------------------------------------------------
 
-# The name of this function will be updated later
-# I adapted two different version and somehow this
-# function has become important. Will fix this issue later
-def check_multiwave(b00, week_agg, tspan, nx_test, plot_res):
+# -----------------------------------------------------------------------------------
+def fit_wave(b00, week_agg, tspan, nx_test, plot_res):
+    # Redundant function
+    # Output R2 score
     # Load working variables
     P = week_agg # To avoid local variable referenced before problem
     size_tup = (15,5) # Size of graph
@@ -363,7 +370,7 @@ def check_multiwave(b00, week_agg, tspan, nx_test, plot_res):
         #print("In check_multiwave -- Fitted values of last wave passed")
     
     # Perform fit
-    b0, y_pred, y_true, t_span = fit_wave(ndat = ndat, week_agg= P, tspan=t, b00 = b01, show_rep = False, method = 'bfgs')
+    b0, y_pred, y_true, t_span = perform_fit(ndat = ndat, week_agg= P, tspan=t, b00 = b01, show_rep = False, method = 'bfgs')
     #print(b0) # Testing to see if the fit is working properly
 
     # Calcualte scores
@@ -377,11 +384,14 @@ def check_multiwave(b00, week_agg, tspan, nx_test, plot_res):
     return b0, rr2, rmse_score, y_pred
 # -----------------------------------------------------------------------------------
 
-# Objective function, Eqn 3 from Dr. Batista's first paper
+# -----------------------------------------------------------------------------------
 def objFun(params,tspan, data):
+    # Objective function, new version for lmfit
     # params -- values of K, r and A [array with three elements]
     #  t -- timestamp [array]
     # data -- actual value at t [array]
+    # amp = params['amp']
+    # phaseshift = params['phase']
     
     # Unpack the variables
     K = params['K']
@@ -397,36 +407,47 @@ def objFun(params,tspan, data):
     #resid = yy - yy1
     resid = np.power((yy - yy1),2)
     return resid
-# ------------------------------------------------------------------------
+# -----------------------------------------------------------------------------------
 
-# Function to calculate logisitic growth for given parameters and timeseries
+# -----------------------------------------------------------------------------------
 def logisticFun(t, b):
+    # Function to calculate logisitic growth for given parameters and timeseries
     # Unpack parameters
     K = b[0]
     r = b[1]
     A = b[2]
     
     #A = K/A - 1; # This simiplification has been omitted
+
+    # Set delay value if we have more than two waves (not used here)
+    if (len(b) > 3):
+        tdel = b[3]
+        t = t - tdel # This has to be broadcasted
+    
+    # Calculate value of C using logitic growth equation (2 in refe to Dr. Batista's paper)
+    # y = a/ (1 + c * exp(- (b * t)))
     
     # Vectorize the helper function using numpy.vectorize
     vfunc = np.vectorize(logit)
     f = vfunc(t,K,r,A)
     #print(np.shape(f))
     return f
-# ------------------------------------------------------------------------
+# -----------------------------------------------------------------------------------
 
-# Classical logistic growht model, eqn (2) from Dr. Batista's first paper
-# Helper fucntion for logisticFun(t,b)
+# -----------------------------------------------------------------------------------
 def logit(t,K,r,A):
+    # Generalized logistic growht model, eqn (2) from Dr. Batista's first paper
+    # Helper fucntion for logisticFun(t,b)
     # K = b[0]
     # r = b[1]
     # I0 = b[2]
     f = K/ (1 + A * exp(- (r * t)))
     return f
-# ------------------------------------------------------------------------
+# -----------------------------------------------------------------------------------
 
-# Vectorized version for calculating incidence
+# -----------------------------------------------------------------------------------
 def logisticFun2(t, b, C):
+    # Vectorized version for calculating incidence
     # Unpack parameters
     K = b[0]
     r = b[1]
@@ -438,17 +459,20 @@ def logisticFun2(t, b, C):
     del_f = vfunc(t,K,r,A)
     #print(np.shape(f))
     return del_f
+# -----------------------------------------------------------------------------------
 
-# Helper function for logisiticFun2 (Not used)
+# -----------------------------------------------------------------------------------
 def logit_incidence(t,K,r,A,C):
+    # Helper function for logisiticFun2
     dy1 = r * C
     dy2 = (1 - (C/K))
     dy = dy1 * dy2
     return dy
-# ------------------------------------------------------------------------
+# -----------------------------------------------------------------------------------
 
-# Helper function for logisiticFun2
+#-----------------------------------------------------------------------------------
 def logit_incidence_2(t,K,r,I0):
+    # Helper function for logisiticFun2
     #A = K/I0
     A = I0
     dy1 = K * r * A * exp(-r*t)
@@ -464,22 +488,24 @@ def logit_incidence_2(t,K,r,I0):
     # dy2 = (1 + K * exp(-r*t))**2
     # dy = dy1/dy2 
     return dy
-# ------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------
 
 # Calculate R2 Score
 def calcR2(y_true, y_pred):
     r2score = r2_score(y_true, y_pred)
     return r2score
-# ------------------------------------------------------------------------
 
 # Calculate Root Mean Squared Error
 def calcRMSE(y_true, y_pred):
     rmse = sqrt(mean_squared_error(y_true, y_pred))
     return rmse
-# ------------------------------------------------------------------------
 
-# Calculate statistics\
+#-----------------------------------------------------------------------------------
 def calcStats(y_true, y_pred, print_debug):
+    # Calculate statistics
+    # Input 
+    # y_true, y_pred
+    # Output
     # rr2 -- r2 score (0 <= score <=1 )
     # rmse_score -- Room mean squared error
     # Explanation of R2 is here https://www.youtube.com/watch?v=hdKrUoeUQjE
@@ -494,23 +520,16 @@ def calcStats(y_true, y_pred, print_debug):
         print(f"RMSE score --> {rmse_score}")
 
     return rr2, rmse_score
-# ------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------
 
-# Function to visualize fitted plot
-def visualize_result(y_true,y_pred,tspan,size_tup):
-    fig = plt.figure(figsize=size_tup)
-    plt.scatter(tspan, y_true, color = 'red')
-    plt.plot(tspan, y_pred, color = 'blue')
-    plt.show()
-# ------------------------------------------------------------------
-
-# Helper function to find phase starting and ending point locations
+#-----------------------------------------------------------------------------------
 def find_phase_loc(w_K, w_r, w_A, t_span, print_res):
+    # Helper function to find phase starting and ending point locations
     tpeak, tp2, tp3, tp4, tpend = 0,0,0,0,0
     loc_ls = []
     start_loc = t_span[0]
-    
     tpeak = int(log(w_A)/w_r)
+    aa = (2/w_r)
     tp2 = int(tpeak - (2/w_r))
 
     if (tp2>0):
@@ -545,9 +564,11 @@ def find_phase_loc(w_K, w_r, w_A, t_span, print_res):
         print(f"tpend --> {tpend}\n")
     # Send back locations points
     return loc_ls
+#-----------------------------------------------------------------------------------
 
-## Plot figure with phases described by Dr Batista
-def plot_cumu_phases(const_add, w1_loc_ls, params, timestamp, sampleC, yypred,I_change):
+#-----------------------------------------------------------------------------------
+def plot_cumu_phases(const_add, w1_loc_ls, params, timestamp, sampleC, yypred,I_change, fontSIZE):
+    ## Plot figure with phases described by Dr Batista
     Kopt = params[0]
     ropt = params[1]
     Aopt = params[2]
@@ -570,13 +591,12 @@ def plot_cumu_phases(const_add, w1_loc_ls, params, timestamp, sampleC, yypred,I_
     y_act_scaled = min_max_norm(sampleC)
     y_pred_scaled = min_max_norm(yypred)
     I_pred_scaled = min_max_norm(I_change)
-    print(timestamp.shape)
 
+    # HARDCODED, change to change color of all curve elements i.e. logistic curve, cumulative curve
     # Draw data points, logistic growth curve fit and logistic growth rate
     #plt.scatter(timestamp, y_act_scaled, 'ko', label = 'Data')
     ax.plot(timestamp, y_act_scaled, 'o', color='black', label = 'Data', lw = 2.5)
-    # ax.plot(timestamp, y_pred_scaled, 'b-', color='#A5C8E4', label = 'Cumulative fit',lw = 2.5)
-    ax.plot(timestamp, y_pred_scaled, 'b-', label = 'Cumulative fit',lw = 2.5)
+    ax.plot(timestamp, y_pred_scaled, 'b-', color='#A5C8E4', label = 'Cumulative fit',lw = 2.5)
     ax.plot(timestamp, I_pred_scaled, 'r-', color='black', label = 'Rate of change fit',lw = 2.5)
 
     # tpeak = int(log(Aopt)/ropt)
@@ -607,12 +627,14 @@ def plot_cumu_phases(const_add, w1_loc_ls, params, timestamp, sampleC, yypred,I_
     # Hex values found using google's rgb to hex converter
     # Type "rgb to hex" in a google search bar to bring up the pallet
 
+    # Color schema similar to Dr. Batista's work
     # phase1_color = '#d8d4d9'
     # phase2_color = '#ed8a58'
     # phase3_color = '#e173eb'
     # phase4_color = '#f7f494'
     # phase5_color = '#b4f781'
 
+    # To reproduce colors from paper
     phase1_color = '#FFFFFF'
     phase2_color = '#E0E0E0'
     phase3_color = '#FFFFFF'
@@ -663,7 +685,7 @@ def plot_cumu_phases(const_add, w1_loc_ls, params, timestamp, sampleC, yypred,I_
     ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.1), shadow=True, ncol=4)
 
     plt.axvline(x = tp4, lw = 1, color = 'black', linestyle="dashed", label = 'tp4')
-    ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.1), shadow=True, ncol=4)
+    ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.1), shadow=True, ncol=4, prop={'size': fontSIZE})
 
     # Add axis label
     plt.xlabel("Time")
@@ -673,18 +695,28 @@ def plot_cumu_phases(const_add, w1_loc_ls, params, timestamp, sampleC, yypred,I_
     #plt.title("Logistic Growth fit for Arizona")
 
     # Save figure
-    plt.savefig('combined_phase.png', bbox_inches='tight')
-    plt.savefig("combined_phase.svg", format = 'svg', dpi=600, bbox_inches='tight')
-    plt.show()
+    # font = {'family' : 'normal',
+    #     'weight' : 'bold',
+    #     'size'   : 22}
 
-# Reference - https://learn.64bitdragon.com/articles/computer-science/data-processing/min-max-normalization
+    #plt.rc('font', **font)
+
+    plt.savefig('combined_phase.png', bbox_inches='tight')
+    plt.savefig("combined_phase.svg", format = 'png', dpi=600, bbox_inches='tight')
+    plt.show()
+#-----------------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------------
 def min_max_norm(x):
+    # Reference - https://learn.64bitdragon.com/articles/computer-science/data-processing/min-max-normalization
     min_num = np.min(x)
     max_num = np.max(x)
     range_num = max_num - min_num
     aa = [((a - min_num) / range_num) for a in x]
     aa = np.asarray(aa)
     return aa
+#-----------------------------------------------------------------------------------
 
 
-########################## END FUNCTION DEFINTIONS ######################################
+
+########################## END OF FILE ######################################
