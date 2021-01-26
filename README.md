@@ -2,18 +2,13 @@
 Port of Dr. Batista's single wave fitVirus MATLAB code 
 <br/>Reference -- M. Batista (2020). fitVirus (https://www.mathworks.com/matlabcentral/fileexchange/74411-fitvirus), MATLAB Central File Exchange. Retrieved November 2, 2020.
 
-## Version - 8.5
-## Date - 12/04/2020
+## Version - 10.X.1
+## Date - 01/26/2020
 ## Author - Azmyin Md. Kamal, Graduate Research Assistant, UL Lafayette, Louisiana, USA
 
 # Images
 ### Plot with virus phase. Here only the fast-growth phase has been highlighted
 ![](images/combined.png)
-
-## Known Issues ---------------------------------------------------------------------------
-<ol>
-  <li>check_multiwave is a misnoner, I will fix this later. This code does not check for a 2nd virus wave</li>
-</ol>
 
 ## Important Notes ---------------------------------------------------------------------------
 <ol>
@@ -32,4 +27,5 @@ Port of Dr. Batista's single wave fitVirus MATLAB code
   <li>cumulative plot's y axis is min-maxed normalized. If you want to see the correct values on y axis, plot cumulative cases and rate of change in cases separately</li>
 </ol>
 
+# TO-DO add citation information
 If you find this code useful, please consider citing this repository along with Dr. Batista's original code whose link is given above
